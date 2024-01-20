@@ -27,6 +27,12 @@ print(parsed_tire_code.specs.TIRE_WIDTH)
 print(parsed_tire_code.specs.WHEEL_DIAMETER)
 ```
 
+You can also access all spec values as a dictionary:
+
+```python
+parsed_tire_code.specs_dict
+```
+
 ## Contributing
 Any suggestions or contributions are welcome! 
 The _get_specs() method is pretty ugly, I intend to clean it up and probably break it into a few methods.
