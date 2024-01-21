@@ -34,9 +34,7 @@ parsed_tire_code.specs_dict
 ```
 
 ## Contributing
-Any suggestions or contributions are welcome! 
-The _get_specs() method is pretty ugly, I intend to clean it up and probably break it into a few methods.
-I am also tweaking the Regex because I think there are ways to do this without requiring so many regex patterns.
+Any suggestions or contributions are welcome! I hope you find this package useful.
 
 ## License
 MIT License

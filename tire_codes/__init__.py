@@ -1,1 +1,1 @@
-from .main import TireCodeParser
+from .parser import TireCodeParser
