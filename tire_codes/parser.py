@@ -1,6 +1,6 @@
-from re import Pattern, Match
-from typing import Callable
-from .regex import TireCodeRegex
+from tire_codes.enums import CodeFormat
+from tire_codes.regex import TireCodeRegex
+from tire_codes.tire_specs import TireSpecs
 
 
 class TireCodeParsingError(Exception):
@@ -8,133 +8,197 @@ class TireCodeParsingError(Exception):
     pass
 
 
-class TireSpecs:
-
-    def __init__(self):
-        self.SERVICE_TYPE = None
-        self.TIRE_WIDTH = None
-        self.ASPECT_RATIO = None
-        self.WHEEL_DIAMETER = None
-        self.OVERALL_DIAMETER = None
-        self.LOAD_INDEX = None
-        self.LOAD_INDEX_DUAL = None
-        self.SPEED_RATING = None
-
-
 class TireCodeParser:
     """
-    Params:
-        use_search - use re.Pattern.search() instead of re.Pattern.match()
-        raise_exc - Raise an exception (or not) if no tire-code data is found by any of the regex patterns.
-        *args/**kwargs - optional params you want passed to re.Pattern.match() / re.Pattern.search()
+    A class to parse tire codes using regular expressions.
+
+    Parameters:
+    ----------
+    use_search : bool
+        If True, use `re.Pattern.search()` instead of `re.Pattern.match()` for regex matching. Default is False.
+    raise_exc : bool
+        If True, raises an exception when no tire-code data is found by any of the regex patterns. Default is False.
+    *args/**kwargs : 
+        Optional parameters to pass to `re.Pattern.match()` or `re.Pattern.search()` methods.
     """
+
     @property
-    def specs_dict(self) -> dict:
-        """If you prefer to have the specs as a dictionary instead of a different class."""
-        d = {}
-        for key, value in self.specs.__dict__.items():
-            d[key] = value
-        return d
+    def tire_code_no_spaces(self) -> str:
+        return ''.join([char for char in self.tire_code.split() if char != ' '])
+
+    @property
+    def tire_code_remove_leading_alpha(self) -> str:
+        if self.tire_code[0].isalpha():
+            for i, char in enumerate(self.tire_code):
+                if not char.isalpha():
+                    return self.tire_code[i:]
+        return self.tire_code
+    
 
     def __init__(
             self,
             tire_code: str,
-            use_search: bool = False,
-            raise_exc: bool = True,
-            *args,
-            **kwargs
     ):
-        self._use_search = use_search
-        self._raise_exc = raise_exc
-        self.tire_code = self._preprocess(tire_code)
+        self.tire_code = tire_code.upper().strip()
         self.regex = TireCodeRegex
-        self.pattern_to_method = self._pattern_to_method_mapping()
-        self.specs = TireSpecs()
-        self._get_specs(*args, **kwargs)
+        self.format_enum = self._format_enum()
 
-    def _inch_to_mm(self, inches: float) -> float:
-        """Converts inches to mm"""
-        return inches * 25.4
+        self.parse()
 
-    def _pattern_to_method_mapping(self) -> dict[Pattern, Callable]:
-        """Not all tire codes contain the same information. Different regex patterns
-        will match different sets of tire data. This mapping matches each regex pattern
-        to it's method for populating tire specs with its particular set of data.
-        """
-        return {
-            self.regex.tire_code: self._populate_from_tire_code,
-            self.regex.tire_code_2: self._populate_from_tire_code_2,
-            self.regex.tire_code_3: self._populate_from_tire_code_3,
-            self.regex.tire_code_offroad: self._populate_from_tire_code_offroad,
-            self.regex.tire_code_reinf: self._populate_from_tire_code_reinf,
-        }
 
-    def _preprocess(self, tire_code: str) -> str:
-        if not isinstance(tire_code, str):
-            raise ValueError(
-                f"tire_code must be of type 'str', not '{type(tire_code).__name__}'")
-        return tire_code.upper().strip().replace('(', '').replace(')', '')
 
-    def _get_specs(self, *args, **kwargs):
-        """Try each regex pattern until we get a match, then call that pattern's associated
-        method to populate TireSpec with the tire data.
-        """
-        for pattern, method in self.pattern_to_method.items():
-            if self._use_search:
-                regex_match = pattern.search(self.tire_code, *args, **kwargs)
+    def parse(self) -> TireSpecs:
+        # '295/70R18 129/126Q'
+        # '305/30ZR20 103Y'
+        # '315/35R20 110W'
+        # 'LT315/35R20 110W'
+        # '35X12.50R17LT 121Q'
+        width, aspect_ratio = self._width_and_aspect_ratio()
+        speed_rating = self._speed_rating()
+        construction = self._construction()
+        wheel_diameter = self._wheel_diameter(construction)
+        load_index = self._load_index(construction, wheel_diameter)
+        load_index_dual = self._load_index_dual()
+        service_type = self._service_type(construction, wheel_diameter)
+        # print(service_type)
+
+        if self.format_enum == CodeFormat.METRIC:
+
+            TireSpecs(
+                WIDTH=width,
+                ASPECT_RATIO=aspect_ratio,
+                CONSTRUCTION=construction,
+                WHEEL_DIAMETER=wheel_diameter,
+                LOAD_INDEX=load_index,
+                LOAD_INDEX_DUAL=load_index_dual,
+                SPEED_RATING=speed_rating,
+                SERVICE_TYPE=service_type
+            )
+
+
+
+
+    def _service_type_start(self) -> str | None:
+        service_type = ''
+        removed_leading_alpha = self.tire_code_remove_leading_alpha
+        if self.tire_code != removed_leading_alpha:
+            for char in self.tire_code:
+                if char.isalpha():
+                    service_type += char
+                else:
+                    break
+        return service_type
+
+    def _service_type(self, construction:str, wheel_diameter:str) -> str | None:
+        #TODO this function doesnt work yet
+        service_type = self._service_type_start()
+        if not service_type:
+            substring = construction+wheel_diameter
+            tire_code_slice = self.tire_code[self.tire_code.find(substring) + len(substring):]
+
+        return service_type if service_type else None
+
+
+    def _load_index_dual(self) -> str | None:
+        load_index_dual = ''
+        is_dual = False
+        for char in self.tire_code[::-1]:
+            if char.isdigit():
+                load_index_dual += char
+            elif char == '/':
+                is_dual = True
+                break
+            elif char == ' ':
+                break
+        if load_index_dual and is_dual:
+            return load_index_dual[::-1]
+        return None
+
+    def _load_index(self, construction:str, wheel_diameter:str) -> str | None:
+        load_index = ''
+        substring = construction+wheel_diameter
+        sliced_code = self.tire_code[self.tire_code.find(substring) + len(substring):]
+        for char in sliced_code:
+            if char.isdigit():
+                load_index += char
+            elif char == '/':
+                break
+        return load_index if load_index else None
+
+    def _speed_rating(self) -> str | None:
+        match = self.regex.metric_speed_rating.search(self.tire_code_remove_leading_alpha)
+        if match:
+            return match.group(0)
+
+
+    def _construction(self) -> str:
+        tire_code = self.tire_code_remove_leading_alpha
+        start = None
+        construction = None
+        for i, char in enumerate(tire_code):
+            if char.isdigit():
+                if start is not None:
+                    construction = tire_code[start:i]
+                start = None
+            elif char.isalpha():
+                if start is None:
+                    start = i
+                    
+        if not construction:
+            raise TireCodeParsingError(f"Could not parse construction type for tire code `{self.tire_code}`")
+        return construction
+
+    def _wheel_diameter(self, construction:str) -> str:
+
+        wheel_diameter = ''
+        tire_code = self.tire_code_remove_leading_alpha
+        sliced_tire_code = tire_code[tire_code.find(construction):].replace(construction, '', 1)
+
+        for char in sliced_tire_code:
+            if char.isdigit():
+                wheel_diameter += char
             else:
-                regex_match = pattern.match(self.tire_code, *args, **kwargs)
-            if regex_match:
-                method(regex_match)
-                return
+                break
+        if not wheel_diameter:
+            raise TireCodeParsingError(f"Could not parse wheel diameter for tire code `{self.tire_code}`, `{sliced_tire_code}`")
+        return wheel_diameter
 
-        if self._raise_exc:
-            raise TireCodeParsingError(
-                f"Can't parse tire code: '{self.tire_code}'")
 
-    def _populate_from_tire_code(self, match: Match):
-        self.specs.SERVICE_TYPE = None
-        self.specs.TIRE_WIDTH = match.group(1)
-        self.specs.ASPECT_RATIO = match.group(2)
-        self.specs.WHEEL_DIAMETER = match.group(3)
-        self.specs.LOAD_INDEX = match.group(4)
-        self.specs.LOAD_INDEX_DUAL = match.group(5)
-        self.specs.SPEED_RATING = match.group(6)
 
-    def _populate_from_tire_code_2(self, match: Match):
-        self.specs.TIRE_WIDTH = match.group(1)
-        self.specs.ASPECT_RATIO = None
-        self.specs.WHEEL_DIAMETER = match.group(3)
-        self.specs.SERVICE_TYPE = match.group(4)
-        self.specs.LOAD_INDEX = match.group(5)
-        self.specs.LOAD_INDEX_DUAL = match.group(6)
-        self.specs.SPEED_RATING = match.group(7)
 
-    def _populate_from_tire_code_3(self, match: Match):
-        self.specs.TIRE_WIDTH = match.group(1)
-        self.specs.ASPECT_RATIO = match.group(2)
-        self.specs.WHEEL_DIAMETER = match.group(3)
-        self.specs.SERVICE_TYPE = match.group(4)
-        self.specs.LOAD_INDEX = match.group(5)
-        self.specs.LOAD_INDEX_DUAL = match.group(6)
-        self.specs.SPEED_RATING = match.group(7)
+    def _width_and_aspect_ratio(self) -> tuple[str, str|None]:
+        match self.format_enum:
+            case CodeFormat.METRIC:
+                match = self.regex.metric_width_aspect_ratio.search(self.tire_code_no_spaces)
+            case CodeFormat.OFF_ROAD:
+                match = None
+        if match:
+            return match.group(1), match.group(2)
+        else:
+            raise TireCodeParsingError(f"Could not parse width and/or aspect ratio for tire code `{self.tire_code}`")
 
-    def _populate_from_tire_code_offroad(self, match: Match):
-        """tire width is converted from inch to mm if its value is less than 50"""
-        width_inches = float(match.group(2))
-        self.specs.OVERALL_DIAMETER = match.group(1)
-        self.specs.ASPECT_RATIO = None
-        self.specs.TIRE_WIDTH = str(self._inch_to_mm(
-            width_inches)) if width_inches <= 50 else str(width_inches)
-        self.specs.WHEEL_DIAMETER = match.group(4)
-        self.specs.SERVICE_TYPE = match.group(5)
-        self.specs.LOAD_INDEX = match.group(6)
-        self.specs.SPEED_RATING = match.group(7)
 
-    def _populate_from_tire_code_reinf(self, match: Match):
-        self.specs.SERVICE_TYPE = None
-        self.specs.TIRE_WIDTH = match.group(1)
-        self.specs.ASPECT_RATIO = match.group(2)
-        self.specs.WHEEL_DIAMETER = match.group(3)
-        self.specs.LOAD_INDEX = None
-        self.specs. SPEED_RATING = None
+    def _clean_split(self, sep:str, **kwargs) -> list[str]:
+        return [code.strip() for code in self.tire_code.split(sep=sep **kwargs)]
+
+
+    def _format_enum(self) -> CodeFormat:
+        if self.regex.format_metric.search(self.tire_code):
+            return CodeFormat.METRIC
+        elif self.regex.format_off_road:
+            return CodeFormat.OFF_ROAD
+        else:
+            raise TireCodeParsingError(f"Tire code{self.tire_code} can not be parsed")
+        
+
+
+
+
+if __name__ == '__main__':
+    from tests.sample_codes import sample_codes 
+   
+    for code in sample_codes:
+        if TireCodeRegex.format_metric.match(code):
+            TireCodeParser(code)
+
+    # parser = TireCodeParser('LT215/65R17 99T')

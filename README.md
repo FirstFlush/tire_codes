@@ -22,7 +22,7 @@ For a tire code like "215/70R16 100T", the tool extracts and provides the detail
 To use the Tire Code Parser, simply pass your tire code string to the `TireCode` object:
 
 ```python
-parsed_tire_code = TireCode("your_tire_code")
+parsed_tire_code = TireCodeParser("your_tire_code")
 print(parsed_tire_code.specs.TIRE_WIDTH)
 print(parsed_tire_code.specs.WHEEL_DIAMETER)
 ```

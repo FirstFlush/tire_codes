@@ -1,1 +1,1 @@
-from .parser import TireCodeParser
+from .old_parser import TireCodeParser, TireSpecs
