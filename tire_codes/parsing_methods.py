@@ -1,9 +1,24 @@
 from tire_codes.exc import TireCodeParsingError
+from tire_codes.regex import TireCodeRegex
+
 
 class BaseParsingMethods:
 
     def __init__(self, tire_code:str):
         self.tire_code = tire_code
+        self.regex = TireCodeRegex
+
+    @property
+    def tire_code_no_spaces(self) -> str:
+        return ''.join([char for char in self.tire_code.split() if char != ' '])
+
+    @property
+    def tire_code_remove_leading_alpha(self) -> str:
+        if self.tire_code[0].isalpha():
+            for i, char in enumerate(self.tire_code):
+                if not char.isalpha():
+                    return self.tire_code[i:]
+        return self.tire_code
 
     @staticmethod
     def extract_alpha(s:str,reverse: bool = False) -> str:
@@ -30,27 +45,78 @@ class BaseParsingMethods:
             else:
                 break
         return digit_str[::-1] if reverse else digit_str
-    
 
     @staticmethod
     def slice_after_substring(s:str, substring: str) -> str:
         """Returns the portion of the string after a given substring."""
         return s[s.find(substring) + len(substring):]
     
-
     def speed_rating(self) -> str | None:
-
         s = self.tire_code.replace('REINF', '').strip()
         speed_rating = self.extract_alpha(s, reverse=True)
         return speed_rating if speed_rating else None
 
+    def load_index(self) -> str | None:
+        split_string = self.tire_code.split(' ')[-1].strip()
+        load_index = self.extract_digits(s=split_string)
+        return load_index if load_index else None
 
+    def load_index_dual(self) -> str | None:
+        load_index_dual = None
+        split_string = self.tire_code.split(' ')[-1]
+        dual_string = split_string.split('/')[-1]
+        if split_string != dual_string:
+            load_index_dual = self.extract_digits(dual_string)
+        return load_index_dual
 
 
 class MetricParser(BaseParsingMethods):
 
-    ...
+    def _service_type_start(self) -> str | None:
+        """If the service type is at the start of the string"""
+        service_type = None
+        if self.tire_code != self.tire_code_remove_leading_alpha:
+            service_type = self.extract_alpha(self.tire_code)
 
+        return service_type
+
+
+    def service_type(self, construction:str, wheel_diameter:str) -> str | None:
+
+        service_type = self._service_type_start()
+        if not service_type:
+            substring = construction + wheel_diameter
+            tire_code_slice = self.slice_after_substring(s=self.tire_code, substring=substring)
+            service_type = self.extract_alpha(tire_code_slice)
+            
+        return service_type
+
+
+    def construction(self) -> str:
+        match = self.regex.metric_construction.search(self.tire_code)
+        if match:
+            return match.group(0)
+        else:
+            raise TireCodeParsingError(f"Could not parse construction type for tire code `{self.tire_code}`")
+
+
+    def wheel_diameter(self, construction:str) -> str:
+
+        sliced_tire_code = self.slice_after_substring(s=self.tire_code_remove_leading_alpha, substring=construction)
+        wheel_diameter = self.extract_digits(sliced_tire_code)
+        if not wheel_diameter:
+            raise TireCodeParsingError(f"Could not parse wheel diameter for tire code `{self.tire_code}`, `{sliced_tire_code}`")
+        return wheel_diameter
+
+
+    def width_and_aspect_ratio(self) -> tuple[str, str|None]:
+        match = self.regex.metric_width_aspect_ratio.search(self.tire_code_no_spaces)
+        if match:
+            try:
+                return match.group(1), match.group(2)
+            except (IndexError):
+                pass
+        raise TireCodeParsingError(f"Could not parse width and/or aspect ratio for tire code `{self.tire_code}`")
 
 
 class OffRoadParser(BaseParsingMethods):
@@ -87,23 +153,6 @@ class OffRoadParser(BaseParsingMethods):
             raise TireCodeParsingError(f"Could not parse construction type for tire code `{self.tire_code}`")
 
         return construction
-
-
-
-    def load_index(self) -> str | None:
-        split_string = self.tire_code.split(' ')[-1]
-        load_index = self.extract_digits(s=split_string)
-        return load_index if load_index else None
-
-
-
-    def load_index_dual(self) -> str | None:
-        load_index_dual = None
-        split_string = self.tire_code.split(' ')[-1]
-        dual_string = split_string.split('/')[-1]
-        if split_string != dual_string:
-            load_index_dual = self.extract_digits(dual_string)
-        return load_index_dual
 
 
     def service_type(self) -> str | None:
