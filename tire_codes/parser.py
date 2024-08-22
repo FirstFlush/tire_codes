@@ -1,12 +1,10 @@
 from typing import Any
 from tire_codes.enums import TireCodeFormat, TireSpecsEnum
+from tire_codes.exc import TireCodeParsingError
+from tire_codes.parsing_methods import MetricParser, OffRoadParser
 from tire_codes.regex import TireCodeRegex
 from tire_codes.tire_specs import TireSpecs
 
-
-class TireCodeParsingError(Exception):
-    """Raised when the tire code can not be successfully parsed."""
-    pass
 
 
 class TireCodeParser:
@@ -15,12 +13,9 @@ class TireCodeParser:
 
     Parameters:
     ----------
-    use_search : bool
-        If True, use `re.Pattern.search()` instead of `re.Pattern.match()` for regex matching. Default is False.
-    raise_exc : bool
-        If True, raises an exception when no tire-code data is found by any of the regex patterns. Default is False.
-    *args/**kwargs : 
-        Optional parameters to pass to `re.Pattern.match()` or `re.Pattern.search()` methods.
+    tire_code : str
+        Pass in the tire code you want to parse. 
+        This can be in either metric `LT305/30ZR20 103Y` or off-road `35X12.50R17LT 121Q` format. 
     """
 
     @property
@@ -42,7 +37,7 @@ class TireCodeParser:
         self.tire_code = tire_code.upper().strip()
         self.regex = TireCodeRegex
         self.format_enum = self._format_enum()
-        self.parse()
+        # self.parse()
 
 
     def parse(self) -> TireSpecs:
@@ -56,6 +51,9 @@ class TireCodeParser:
         match self.format_enum:
             case TireCodeFormat.METRIC:
                 width, aspect_ratio = self._width_and_aspect_ratio_metric()
+                
+                print(MetricParser(self.tire_code).speed_rating())
+
                 speed_rating = self._speed_rating()
                 construction = self._construction()
                 wheel_diameter = self._wheel_diameter(construction)
@@ -64,15 +62,25 @@ class TireCodeParser:
                 service_type = self._service_type(construction, wheel_diameter)
                 overall_diameter = None
             case TireCodeFormat.OFF_ROAD:
-                overall_diameter, width = self._overall_diamater_and_width()
+                offroad_parser = OffRoadParser(self.tire_code)
+                overall_diameter, width = offroad_parser.overall_diamater_and_width()
                 diameter_width_string = 'X'.join([overall_diameter, width])
-                construction = self._construction_off_road(diameter_width_string)
-                wheel_diameter = self._wheel_diameter_off_road(diameter_width_string, construction)
-                service_type = self._service_type_offroad()
-                load_index = self._load_index_offroad()
-                load_index_dual = self._load_index_dual_offroad()
-                speed_rating = self._speed_rating()
+                construction = offroad_parser.construction(diameter_width_string)
+                wheel_diameter = offroad_parser.wheel_diameter(diameter_width_string, construction)
+                service_type = offroad_parser.service_type()
+                load_index = offroad_parser.load_index()
+                load_index_dual = offroad_parser.load_index_dual()
+                speed_rating = offroad_parser.speed_rating()
                 aspect_ratio = None
+                # overall_diameter, width = self._overall_diamater_and_width()
+                # diameter_width_string = 'X'.join([overall_diameter, width])
+                # construction = self._construction_off_road(diameter_width_string)
+                # wheel_diameter = self._wheel_diameter_off_road(diameter_width_string, construction)
+                # service_type = self._service_type_offroad()
+                # load_index = self._load_index_offroad()
+                # load_index_dual = self._load_index_dual_offroad()
+                # speed_rating = self._speed_rating()
+                # aspect_ratio = None
 
         return TireSpecs(
             FORMAT=self.format_enum,
@@ -291,7 +299,13 @@ if __name__ == '__main__':
    
 
     for code in sample_codes:
-        try:
-            TireCodeParser(code)
-        except TireCodeParsingError as e:
-            print('ERROR', code)
+        if 'X' in code:
+            try:
+                parser = TireCodeParser(code)
+            except TireCodeParsingError as e:
+                print('ERROR', code)
+            else:
+                specs = parser.parse()
+                print(specs)
+                print(parser.tire_code)
+                print()
