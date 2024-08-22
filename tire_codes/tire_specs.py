@@ -1,14 +1,15 @@
 from dataclasses import dataclass, asdict
-
+from tire_codes.enums import TireCodeFormat
 
 @dataclass
 class TireSpecs:
+    FORMAT: TireCodeFormat
     SERVICE_TYPE: str | None
     WIDTH: int
     ASPECT_RATIO: int | None
     WHEEL_DIAMETER: int
     CONSTRUCTION: str | None
-    # OVERALL_DIAMETER: float | None
+    OVERALL_DIAMETER: float | None
     LOAD_INDEX: int | None
     LOAD_INDEX_DUAL: int | None
     SPEED_RATING: str | None
