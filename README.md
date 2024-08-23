@@ -1,36 +1,53 @@
-# Tire Code Parser
+# Tire Codes
 
 ## Description
-Tire Code Parser is a Python tool designed to parse various tire specifications from tire codes. It's a work in progress and under testing.
+Tire codes is a Python tool designed to parse various tire specifications from tire codes.
 
 ## Features
 - Parses tire specifications from various formats.
 - Extractable specs include:
+  - FORMAT
   - SERVICE_TYPE
-  - TIRE_WIDTH
+  - WIDTH
   - ASPECT_RATIO
   - WHEEL_DIAMETER
+  - CONSTRUCTION
   - OVERALL_DIAMETER
   - LOAD_INDEX
   - LOAD_INDEX_DUAL
   - SPEED_RATING
 
 ## Example
-For a tire code like "215/70R16 100T", the tool extracts and provides the detailed specs.
+For a tire code like "215/70R16 100T" (metric) or "35X12.5R20 125S" (off-road), the parser will automatically detect the format and extract the details into a `TireSpecs` object.
 
 ## Usage
-To use the Tire Code Parser, simply pass your tire code string to the `TireCode` object:
+To parse a tire code, pass your tire code string to the `TireCodeParser` object:
 
 ```python
-parsed_tire_code = TireCodeParser("your_tire_code")
-print(parsed_tire_code.specs.TIRE_WIDTH)
-print(parsed_tire_code.specs.WHEEL_DIAMETER)
+from tire_codes import TireCodeParser, TireCodeParsingError, TireCodeValidationError
+
+try:
+    parser = TireCodeParser("295/40R21 111Y")
+    specs = parser.parse()
+    print(specs)
+except TireCodeParsingError as e:
+    print(f"Parsing error: {e}")
+except TireCodeValidationError as e:
+    print(f"Validation error: {e}")
 ```
 
 You can also access all spec values as a dictionary:
 
 ```python
-parsed_tire_code.specs_dict
+print(specs.to_dict())
+```
+
+### Command-Line Interface
+
+You can also run the parser from the command line:
+
+```bash
+python3 parser.py "295/40R21 111Y"
 ```
 
 ## Contributing
