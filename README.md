@@ -1,7 +1,7 @@
 # Tire Codes
 
 ## Description
-Tire codes is a Python tool designed to parse various tire specifications from tire codes.
+Tire codes is a lightweight, easy-to-use Python tool designed to parse various tire specifications from tire codes.
 
 ## Features
 - Parses tire specifications from various formats.
@@ -16,6 +16,13 @@ Tire codes is a Python tool designed to parse various tire specifications from t
   - LOAD_INDEX
   - LOAD_INDEX_DUAL
   - SPEED_RATING
+
+## Installation
+Install directly with pip. No external dependencies.
+
+```bash
+pip install tire-codes
+```
 
 ## Example
 For a tire code like "215/70R16 100T" (metric) or "35X12.5R20 125S" (off-road), the parser will automatically detect the format and extract the details into a `TireSpecs` object.
@@ -47,7 +54,7 @@ print(specs.to_dict())
 You can also run the parser from the command line:
 
 ```bash
-python3 parser.py "295/40R21 111Y"
+python3 main.py "295/40R21 111Y"
 ```
 
 ## Contributing

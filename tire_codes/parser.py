@@ -16,11 +16,7 @@ class TireCodeParser:
         -Pass in the tire code you want to parse. 
         -Either metric `235/60ZR18 103Y` or off-road `36X12.50R17LT 121Q` format. 
     """
-
-    def __init__(
-            self,
-            tire_code: str,
-    ):
+    def __init__(self, tire_code: str):
         self.tire_code = tire_code.upper().strip()
         self.format_enum = self._format_enum()
 
@@ -85,23 +81,3 @@ class TireCodeParser:
             raise TireCodeParsingError('tire code format', self.tire_code)
 
 
-def main():
-    parser = argparse.ArgumentParser(
-        description="Parse a tire code and validate its components.")
-    parser.add_argument("tire_code", type=str,
-                        help="The tire code to be parsed and validated (e.g., '295/40R21 111Y').")
-    args = parser.parse_args()
-    tire_code = args.tire_code
-    try:
-        parser = TireCodeParser(tire_code)
-        specs = parser.parse().to_dict()
-        specs['FORMAT'] = specs['FORMAT'].value.title()
-        print(specs)
-    except TireSpecValidationError as e:
-        print(f"Validation failed: {e}")
-    except Exception as e:
-        print(f"An error occurred: {e}")
-
-
-if __name__ == "__main__":
-    main()
